@@ -1,5 +1,5 @@
 import { waitForDebugger } from "inspector/promises";
-
+import { DirtyLevels } from "./constants";
 export function effect(fn: () => void, options: any = {}) {
   const _effect = new ReactiveEffect(fn, () => {
     _effect.run();
@@ -35,17 +35,25 @@ function cleanupDepEffect(dep: any, effect: ReactiveEffect) {
 }
 export let activeEffect: ReactiveEffect | undefined; //全局变量 ，指向 当前正在执行的副作用实例 ，是 Vue 3 响应式系统 依赖收集的核心枢纽 。
 
-class ReactiveEffect<T = any> {
+export class ReactiveEffect<T = any> {
   _trackId = 0; //记录当前effect执行了几次
-  deps: any[] = [];
   _depsLength = 0;
   _running = 0;
+  _dirtyLevel = DirtyLevels.Dirty;
+  deps: any[] = [];
   public active = true;
   constructor(public fn: () => T, public scheduler: () => void) {
     // console.log("fn :>> ", fn);
     // console.log("scheduler :>> ", scheduler);
   }
+  public get dirty() {
+    return this._dirtyLevel === DirtyLevels.Dirty;
+  }
+  public set dirty(v) {
+    this._dirtyLevel = v ? DirtyLevels.Dirty : DirtyLevels.NoDirty;
+  }
   run() {
+    this._dirtyLevel = DirtyLevels.NoDirty;
     if (!this.active) {
       console.log("不是响应式数据");
       return this.fn();
@@ -88,9 +96,13 @@ export function trackEffect(effect: ReactiveEffect, dep: any) {
 
 export function triggerEffects(dep: any) {
   for (const effect of dep.keys()) {
-    if (effect.scheduler) {
-      if (!effect._running) {
-        effect.scheduler();
+    if (effect._dirtyLevel < DirtyLevels.Dirty) {
+      effect._dirtyLevel = DirtyLevels.Dirty;
+    }
+    if (!effect._running) {
+      if (effect.scheduler) {
+        // 如果不是正在执行，才能执行
+        effect.scheduler(); // -> effect.run()
       }
     }
   }

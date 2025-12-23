@@ -1,9 +1,7 @@
 import { reactive } from "./reactive";
 import { isObject } from "@vue/shared";
 import { track, trigger } from "./reactiveEffect";
-export enum ReactiveFlags {
-  IS_REACTIVE = "__v_isReactive",
-}
+import { ReactiveFlags } from "./constants";
 export const mutableHandlers: ProxyHandler<object> = {
   get(target, key, receiver) {
     if (key === ReactiveFlags.IS_REACTIVE) {
